@@ -105,6 +105,7 @@ input[type=date]::-webkit-date-and-time-value,input[type=month]::-webkit-date-an
 .chip,.seg button{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sw span{min-width:0}
 .big,.kpi strong,.half strong{overflow-wrap:anywhere}
+.chips{flex-wrap:wrap}.chips .chip{flex:1 1 22%}
 </style></head><body>
 <header><button id="prev" onclick="nav(-1)">‹</button><div id="mt"></div><button id="next" onclick="nav(1)">›</button></header>
 <main id="main"></main>
@@ -119,7 +120,7 @@ input[type=date]::-webkit-date-and-time-value,input[type=month]::-webkit-date-an
 <script>
 const $=s=>document.querySelector(s),K='financas_v1';
 const MN=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-const M={nubank:{n:'Nubank',c:'#8a05be',i:'Fecha dia 04 · vence dia 11'},inter:{n:'Inter',c:'#ff7a00',i:'Fecha dia 31 · vence dia 07'},pix:{n:'Pix',c:'#0d9488',i:'Saiu na hora'},vr:{n:'VR',c:'#d97706',i:'Sai do vale refeição'}};
+const M={},CPAL=['#8a05be','#ff7a00','#2563eb','#16a34a','#ef4444','#0ea5e9','#ec4899','#64748b'];
 const ym0=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
 const add=(y,n)=>{let[a,m]=y.split('-').map(Number);m+=n-1;a+=Math.floor(m/12);m=((m%12)+12)%12;return a+'-'+String(m+1).padStart(2,'0')};
 const diff=(a,b)=>{const[x,m]=a.split('-').map(Number),[y,n]=b.split('-').map(Number);return(x-y)*12+m-n};
@@ -136,16 +137,24 @@ document.addEventListener('keydown',ev=>{const e=ev.target;if(e&&e.classList&&e.
 const num=s=>Number(s.replace(/\./g,'').replace(',','.'))||0;
 const sum=(a,fn)=>a.reduce((s,x)=>s+(fn?fn(x):x.v),0);
 const cur=ym0(new Date()),INI=cur;
-const DUE={nubank:11,inter:7};
 function fat(k,y){let t=0;S.gastos.forEach(g=>{if(g.m!=k)return;for(let i=0;i<g.n;i++){const pm=add(g.ym,i),dm=k=='nubank'?(g.day<=4?pm:add(pm,1)):add(pm,1);if(dm==y)t+=g.v}});return t}
 let S=JSON.parse(localStorage.getItem(K)||'null');
 if(!S){S={start:INI,sal:{[INI]:1758.74},vr:{[INI]:1061},ganhos:{},fixos:[],gastos:[],inv:{},fechado:{},tema:'auto',seen:'',tab:'home'}}
 if(!S.aniv)S.aniv=[{id:1,n:'Rebecca',d:14,m:1},{id:2,n:'Mãe',d:24,m:1},{id:3,n:'Daniel',d:21,m:2},{id:4,n:'Pai',d:8,m:4},{id:5,n:'Sogra',d:9,m:4},{id:6,n:'Gabriel',d:10,m:4},{id:7,n:'Avô',d:24,m:5},{id:8,n:'Vó',d:28,m:5},{id:9,n:'Gustavo',d:27,m:7},{id:10,n:'Pedro',d:18,m:9},{id:11,n:'Sogro',d:11,m:10}];
 if(!S.avisos)S.avisos={};
+if(!S.salOv)S.salOv={};
+if(!S.vrOv)S.vrOv={};
+function bm(){if(!S.cards)S.cards=[{id:1,k:'nubank',n:'Nubank',c:'#8a05be',fecha:4,venc:11},{id:2,k:'inter',n:'Inter',c:'#ff7a00',fecha:31,venc:7}];
+ Object.keys(M).forEach(k=>delete M[k]);const z=n=>String(n).padStart(2,'0');
+ S.cards.forEach(c=>{M[c.k]={n:c.n,c:c.c,card:1,fecha:c.fecha,venc:c.venc,i:'Fecha dia '+z(c.fecha)+' · vence dia '+z(c.venc)}});
+ M.pix={n:'Pix',c:'#0d9488',i:'Saiu na hora'};M.vr={n:'VR',c:'#d97706',i:'Sai do vale refeição'}}
+bm();
 if(!S.cats)S.cats=[{id:1,n:'Mercado',c:'#16a34a'},{id:2,n:'Alimentação',c:'#f59e0b'},{id:3,n:'Transporte',c:'#2563eb'},{id:4,n:'Casa',c:'#14b8a6'},{id:5,n:'Saúde',c:'#ef4444'},{id:6,n:'Lazer',c:'#ec4899'},{id:7,n:'Compras',c:'#8b5cf6'},{id:8,n:'Presentes',c:'#64748b'},{id:9,n:'Contas',c:'#0ea5e9'},{id:10,n:'Outros',c:'#a3a3a3'}];
 let V=cur<S.start?S.start:cur,D={};
 let tmr=0,last='';
 const save=()=>{localStorage.setItem(K,JSON.stringify(S));clearTimeout(tmr);tmr=setTimeout(()=>sync(),2500)};
+const vrV=y=>S.vrOv&&S.vrOv[y]!=null?S.vrOv[y]:ver(S.vr,y);
+const salV=y=>S.salOv&&S.salOv[y]!=null?S.salOv[y]:ver(S.sal,y);
 const fixoOn=(x,y)=>y>=x.from&&(!x.until||y<x.until);
 const fixoVal=(x,y)=>x.ov[y]!=null?x.ov[y]:ver(x.vals,y);
 const fixoMeta=(x,y)=>x.om&&x.om[y]?x.om[y]:{m:ver(x.fm||{},y)||'',c:ver(x.fc||{},y)||0};
@@ -155,12 +164,12 @@ const PAL=['#16a34a','#2563eb','#f59e0b','#ec4899','#8b5cf6','#14b8a6','#ef4444'
 function calc(y){
  let carry=0,vrCarry=0,invStart=S.invIni||0;
  if(y>S.start){const p=add(y,-1),q=S.fechado[p]||calc(p);vrCarry=q.vrSobra;invStart=q.invEnd}
- const extras=S.ganhos[y]||[],ent=ver(S.sal,y)+sum(extras);
+ const extras=S.ganhos[y]||[],ent=salV(y)+sum(extras);
  const fx=S.fixos.filter(x=>fixoOn(x,y)).map(x=>({...x,v:fixoVal(x,y),...fixoMeta(x,y)}));
  const gs=[];S.gastos.forEach(g=>{const d=diff(y,g.ym);if(d>=0&&d<g.n)gs.push({...g,p:g.n>1?(d+1)+'/'+g.n:''})});
  const din=gs.filter(g=>g.m!='vr'),vg=gs.filter(g=>g.m=='vr');
  const fxd=fx.filter(x=>x.m!='vr'),fxv=fx.filter(x=>x.m=='vr'),gasto=sum(fxd)+sum(din),sobra=ent+carry-gasto;
- const vrTotal=ver(S.vr,y)+vrCarry,vrUsado=sum(vg)+sum(fxv),vrSobra=vrTotal-vrUsado;
+ const vrTotal=vrV(y)+vrCarry,vrUsado=sum(vg)+sum(fxv),vrSobra=vrTotal-vrUsado;
  const mv=S.inv[y]||[],invEnd=invStart+sum(mv);
  return{ent,extras,carry,fx,gs,gasto,sobra,vrTotal,vrUsado,vrSobra,invStart,invEnd,mv,vrCarry,fxT:sum(fx),dinT:sum(din)}
 }
@@ -168,7 +177,7 @@ function theme(){const t=S.tema,d=t=='dark'||(t=='auto'&&matchMedia('(prefers-co
 matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>render());
 
 function render(){
- theme();const c=calc(V),cl=!!S.fechado[V];
+ bm();theme();const c=calc(V),cl=!!S.fechado[V];
  $('#mt').innerHTML=lbl(V)+'<small>'+(cl?'Mês fechado ✓':V==cur?'Mês atual':V>add(cur,1)?'Só as parcelas':V>cur?'Previsão':'Mês anterior')+'</small>';
  $('#prev').disabled=V<=S.start;$('#next').disabled=V>=lastM();
  $('#main').innerHTML=(({home,contas,inv,cfg})[S.tab]||home)(c,cl);
@@ -192,13 +201,14 @@ function home(c,cl){
  h+=`<div class=hero><div class=two><div class=half style="background:${neg&&!pd?'linear-gradient(135deg,#f43f5e,#be123c)':'linear-gradient(135deg,#10b981,#047857)'}"><b>Sobra do dinheiro</b><strong>${pd?'—':f(c.sobra)}</strong><small>${pd?why:'Diminui a cada compra'}</small></div><div class=half style="background:linear-gradient(135deg,#f59e0b,#d97706)"><b>Sobra do VR</b><strong>${pd?'—':f(c.vrSobra)}</strong><small>${pd?why:'Vale refeição'}</small></div></div></div>`;
  h+=`<div class="grid mini" style="margin-top:10px"><div class=kpi onclick="go('contas')" style="background:linear-gradient(135deg,#fb7185,#e11d48)"><b>Gastos</b><strong>${f(c.gasto)}</strong><small>Ver contas ›</small></div><div class=kpi onclick="go('inv')" style="background:linear-gradient(135deg,#3b82f6,#4338ca)"><b>Investido</b><strong>${pd?'—':f(c.invEnd)}</strong><small>Ver investimentos ›</small></div></div>`;
  h+=anivCard();
- h+=sec('Faturas e pagamentos',`Gasto do mês ${f(sum(c.gs)+c.fxT)}`,'#6366f1')+'<div class=lst>'+Object.keys(M).map(k=>{let sub=M[k].i;if(DUE[k]){const dd=DUE[k],dt=new Date(+V.split('-')[0],+V.split('-')[1]-1,dd),dias=Math.round((dt-new Date(new Date().toDateString()))/864e5),w=V==cur?(dias>0?`em ${dias} ${dias>1?'dias':'dia'}`:dias==0?'hoje':'já venceu'):'';sub=`vence ${WD[dt.getDay()]} ${String(dd).padStart(2,'0')}/${V.split('-')[1]}${w?` · <span class=badge>${w}</span>`:''}`}return`<div class=row>${ico(k)}<div class=t><div>${M[k].n}</div><small>${sub}</small></div><div class=v>${f(sum(c.gs.filter(g=>g.m==k))+sum(c.fx.filter(x=>x.m==k)))}</div></div>`}).join('')+'</div>';
+ h+=sec('Faturas e pagamentos',`Gasto do mês ${f(sum(c.gs)+c.fxT)}`,'#6366f1')+'<div class=lst>'+Object.keys(M).map(k=>{let sub=M[k].i;if(M[k].card){const nx=add(V,1).split('-').map(Number),dd=Math.min(M[k].venc,new Date(nx[0],nx[1],0).getDate()),dt=new Date(nx[0],nx[1]-1,dd),dias=Math.round((dt-new Date(new Date().toDateString()))/864e5),w=(V==cur||V==add(cur,-1))?(dias>0?`em ${dias} ${dias>1?'dias':'dia'}`:dias==0?'hoje':'já venceu'):'';sub=`vence ${WD[dt.getDay()]} ${String(dd).padStart(2,'0')}/${String(nx[1]).padStart(2,'0')}${w?` · <span class=badge>${w}</span>`:''}`}if(k=='vr'&&S.vrDia)sub='Sai do VR · o vale cai dia '+String(S.vrDia).padStart(2,'0');return`<div class=row>${ico(k)}<div class=t><div>${M[k].n}</div><small>${sub}</small></div><div class=v>${f(sum(c.gs.filter(g=>g.m==k))+sum(c.fx.filter(x=>x.m==k)))}</div></div>`}).join('')+'</div>';
  h+=cl?`<button class=link style="width:100%;margin-top:14px" onclick="reopen()">Reabrir ${mnm(V)}</button>`:pd?`<p class=hint style="text-align:center;margin-top:16px">Feche ${mnm(p)} para liberar este mês.</p>`:`<button class=pri style="margin-top:16px" onclick="closeSheet()">Fechar ${mnm(V)}</button>`;
  return h;
 }
 function contas(c){
  const pd=pend(),pl='style="padding:12px 14px"';
- let h=sec('Entradas',`Total ${f(c.ent)}`,'#10b981')+`<div class=lst><div class=row onclick="go('cfg')"><div class=t><div>Salário</div><small>Editar em Mais</small></div><div class="v pos">${f(ver(S.sal,V))}</div></div>`+c.extras.map(x=>`<div class=row onclick="extraSheet(${x.id})"><div class=t><div>${esc(x.t)}</div></div><div class="v pos">${f(x.v)}</div></div>`).join('')+(c.carry&&!pd?`<div class=row><div class=t><div>Sobra do mês anterior</div></div><div class="v ${c.carry<0?'neg':'pos'}">${f(c.carry)}</div></div>`:'')+`<button class=link ${pl} onclick="extraSheet()">+ Entrada extra</button></div>`;
+ let h=sec('Entradas',`Total ${f(c.ent)}`,'#10b981')+`<div class=lst><div class=row onclick="salSheet()"><div class=t><div>Salário</div><small>${S.salOv&&S.salOv[V]!=null?'só deste mês':'repete nos meses'}</small></div><div class="v pos">${f(salV(V))}</div></div>`+c.extras.map(x=>`<div class=row onclick="extraSheet(${x.id})"><div class=t><div>${esc(x.t)}</div></div><div class="v pos">${f(x.v)}</div></div>`).join('')+(c.carry&&!pd?`<div class=row><div class=t><div>Sobra do mês anterior</div></div><div class="v ${c.carry<0?'neg':'pos'}">${f(c.carry)}</div></div>`:'')+`<button class=link ${pl} onclick="extraSheet()">+ Entrada extra</button></div>`;
+ h+=sec('Vale refeição',`Disponível ${f(c.vrTotal)}`,'#d97706')+`<div class=lst><div class=row onclick="vrSheet()"><div class=t><div>Vale do mês</div><small>${S.vrDia?'cai dia '+pd2(S.vrDia):'dia que cai ainda não definido'} · ${S.vrOv&&S.vrOv[V]!=null?'só deste mês':'repete nos meses'}</small></div><div class="v pos">${f(vrV(V))}</div></div>`+(c.vrCarry&&!pd?`<div class=row><div class=t><div>Sobra do mês anterior</div></div><div class="v ${c.vrCarry<0?'neg':'pos'}">${f(c.vrCarry)}</div></div>`:'')+'</div>';
  h+=sec('Gastos fixos',`Total ${f(c.fxT)}`,'#f59e0b')+'<div class=lst>'+(c.fx.length?c.fx.map(x=>`<div class=row onclick="fixoSheet(${x.id})">${x.m&&M[x.m]?ico(x.m):''}<div class=t><div>${esc(x.t)}</div><small>${[M[x.m]?M[x.m].n:'',x.c?catOf(x.c).n:''].filter(Boolean).join(' · ')}${x.m||x.c?' · ':''}${x.ov[V]!=null?'só deste mês':'repete nos meses'}</small></div><div class=v>${f(x.v)}</div></div>`).join(''):'<p class=hint style="padding:14px">Nenhum fixo neste mês.</p>')+`<button class=link ${pl} onclick="fixoSheet()">+ Novo gasto fixo</button></div>`;
  const L=[...c.gs].sort((a,b)=>b.day-a.day);
  h+=sec('Gastos do mês',`${L.length} ${L.length==1?'lançamento':'lançamentos'} · total ${f(sum(c.gs))}`,'#f43f5e')+'<div class=lst>'+(L.length?L.map(g=>`<div class=row onclick="addG(${g.id})">${ico(g.m)}<div class=t><div>${esc(g.t)}${g.p?` <span class=badge>${g.p}</span>`:''}</div><small>Dia ${g.day} · ${M[g.m].n}${g.c?' · '+esc(catOf(g.c).n):''}</small></div><div class=v>${f(g.v)}</div></div>`).join(''):'<p class=hint style="padding:14px">Nenhum gasto ainda. Toque em Compra para lançar.</p>')+'</div>';
@@ -213,7 +223,7 @@ function inv(c){
  return h;
 }
 let editCon=false;
-const VER='1.7';
+const VER='2.0';
 const TI={auto:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>',light:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',dark:'<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>'};
 function cfg(){
  const t=localStorage.getItem('fin_sync'),hh=t?new Date(t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'';
@@ -224,9 +234,8 @@ function cfg(){
  if(S.url)h+=`<button class=btn onclick="sair()">Sair da conta</button><p class=hint style="text-align:center;margin-top:14px">Finanças · versão ${VER}</p><p class=hint style="text-align:center">${hh?'Enviado às '+hh:'Ainda não enviou'} · <button class=link onclick="sync(true);toast('Enviando…')">Enviar agora</button></p><p style="text-align:center"><button class=link onclick="nuvem()">Restaurar da nuvem</button> · <button class=link onclick="editCon=!editCon;render()">Editar conexão</button></p>`;
  else h+=`<p class=hint style="text-align:center;margin-top:12px">Finanças · versão ${VER}</p>`;
  if(!S.url||editCon)h+=`<div class=card><h4>Conectar à planilha</h4><p class=hint>Cole o link do Apps Script e a senha. Passo a passo no arquivo apps-script.gs.</p><input id=url placeholder="Link do Apps Script (termina em /exec)" value="${esc(S.url||'')}"><input id=sn placeholder="Senha (a mesma do script)" value="${esc(S.senha||'')}"><input id=pl placeholder="Link da planilha (opcional)" value="${esc(S.planilha||'')}"><button class=sec onclick="conectar()">Conectar</button></div>`;
- h+=`<div class=card><h4>Salário</h4><input class=money inputmode=numeric placeholder="0,00" value="${mm(Math.round(ver(S.sal,V)*100))}" oninput="mk(this)" id=sal><p class=hint>Vale a partir de ${lbl(V)}. Meses anteriores não mudam.</p><button class=sec onclick="S.sal[V]=num($('#sal').value);render()">Salvar salário</button></div>
- <div class=card><h4>Vale refeição do mês</h4><input class=money inputmode=numeric placeholder="0,00" value="${mm(Math.round(ver(S.vr,V)*100))}" oninput="mk(this)" id=vrb><p class=hint>A sobra do mês anterior é somada automaticamente.</p><button class=sec onclick="S.vr[V]=num($('#vrb').value);render()">Salvar VR</button></div>
- <div class=card><h4>Começar o app em</h4><input type=month id=ini value="${S.start}"><p class=hint>Valor que você já tem investido nesse mês de início:</p><input class=money inputmode=numeric placeholder="0,00" id=ii value="${mm(Math.round((S.invIni||0)*100))}" oninput="mk(this)"><button class=sec onclick="setStart()">Aplicar</button></div>
+ h+=`<div class=card><h4>Começar o app em</h4><input type=month id=ini value="${S.start}"><p class=hint>Valor que você já tem investido nesse mês de início:</p><input class=money inputmode=numeric placeholder="0,00" id=ii value="${mm(Math.round((S.invIni||0)*100))}" oninput="mk(this)"><button class=sec onclick="setStart()">Aplicar</button></div>
+ <div class=card><h4>Cartões</h4><p class=hint>Edite o vencimento dos seus cartões ou adicione um novo. A fatura de um mês vence no mês seguinte.</p><button class=sec onclick="cardsSheet()">Ver e editar</button></div>
  <div class=card><h4>Aniversários</h4><p class=hint>Aparecem só no mês do aniversário, na tela inicial e em um aviso ao abrir o app. Aqui você vê e edita todos.</p><button class=sec onclick="anivSheet()">Ver e editar</button></div>
  <div class=card><h4>Backup manual</h4><p class=hint>Escolha Drive ou Arquivos na tela que abrir.</p><button class=sec onclick="share('financas.csv',csv(),'text/csv')">Exportar todos os meses (planilha)</button><button class=sec onclick="share('backup-financas.json',JSON.stringify(S),'application/json')">Salvar backup em arquivo</button><button class=sec onclick="restore()">Restaurar backup</button></div>`;
  return h;
@@ -247,18 +256,28 @@ function anivEdit(id){const a=id?S.aniv.find(x=>x.id==id):null;sheet(`<h3>${a?'E
 function anivSave(id){const n=$('#an').value.trim(),m=/^(\d{1,2})\/(\d{1,2})$/.exec($('#ad').value);if(!n||!m||+m[1]<1||+m[1]>31||+m[2]<1||+m[2]>12){alert('Preencha o nome e a data (DD/MM).');return}const o={n,d:+m[1],m:+m[2]};if(id)Object.assign(S.aniv.find(x=>x.id==id),o);else S.aniv.push({id:Date.now(),...o});save();anivSheet();render()}
 function anivDel(id){S.aniv=S.aniv.filter(x=>x.id!=id);save();anivSheet();render()}
 function avisoAniv(){if($('#sh').style.display=='block')return;const y=new Date().getFullYear(),L=anivMes().filter(a=>!S.avisos[a.id+'-'+y+'-B']);if(!L.length)return;L.forEach(a=>S.avisos[a.id+'-'+y+'-B']=1);save();sheet(`<h3>Aniversários deste mês</h3><div class=lst>${L.map(a=>`<div class=row><div class=t><div>${esc(a.n)}</div><small>${a.dias==0?'hoje':a.dias==1?'amanhã':'em '+a.dias+' dias'}</small></div><div class=v>${pd2(a.d)}/${pd2(a.m)}</div></div>`).join('')}</div><p class=hint>Hora de comprar o presente.</p><button class=pri onclick="cl()">Ok</button>`)}
+function cardsSheet(){sheet(`<h3>Cartões</h3><div class=lst>${S.cards.map(c=>`<div class=row onclick="cardEdit(${c.id})"><span class=cc style="background:${c.c}"><u></u></span><div class=t><div>${esc(c.n)}</div><small>fecha dia ${pd2(c.fecha)} · vence dia ${pd2(c.venc)}</small></div></div>`).join('')}</div><p class=hint>A fatura de um mês vence no mês seguinte.</p><button class=pri onclick="cardEdit()">+ Adicionar cartão</button>`)}
+function cardEdit(id){const x=id?S.cards.find(e=>e.id==id):null;D.cc=x?x.c:CPAL[S.cards.length%CPAL.length];const P=CPAL.includes(D.cc)?CPAL:[D.cc,...CPAL];
+ sheet(`<h3>${x?'Editar':'Novo'} cartão</h3><input id=cn placeholder="Nome do cartão" value="${esc(x?x.n:'')}"><label class=lb>Dia do vencimento</label><input id=cv type=number inputmode=numeric min=1 max=31 placeholder="Ex.: 11" value="${x?x.venc:''}"><label class=lb>Dia do fechamento</label><input id=cf type=number inputmode=numeric min=1 max=31 placeholder="Ex.: 4" value="${x?x.fecha:''}"><label class=lb>Cor</label><div class=sw8>${P.map(c=>`<button class="swc ${c==D.cc?'on':''}" data-c="${c}" style="background:${c}" onclick="D.cc='${c}';document.querySelectorAll('.swc').forEach(b=>b.classList.toggle('on',b.dataset.c==D.cc))"></button>`).join('')}</div><button class=pri onclick="cardSave(${id||0})">Salvar</button>${x?`<button class=del onclick="cardDel(${id})">Excluir cartão</button>`:''}<button class=sec onclick="cardsSheet()">Voltar</button>`)}
+function cardSave(id){const n=$('#cn').value.trim(),v=parseInt($('#cv').value),f=parseInt($('#cf').value);
+ if(!n||!(v>=1&&v<=31)||!(f>=1&&f<=31)){toast('Preencha o nome e os dias (de 1 a 31).');return}
+ if(id)Object.assign(S.cards.find(e=>e.id==id),{n,venc:v,fecha:f,c:D.cc});else{const t=Date.now();S.cards.push({id:t,k:'c'+t,n,venc:v,fecha:f,c:D.cc})}
+ save();cardsSheet();render()}
+function cardDel(id){const x=S.cards.find(e=>e.id==id),fx=S.fixos.some(e=>Object.values(e.fm||{}).includes(x.k)||Object.values(e.om||{}).some(o=>o.m==x.k));
+ if(S.gastos.some(g=>g.m==x.k)||fx){toast('Este cartão tem lançamentos. Mude a forma de pagamento deles antes de excluir.');return}
+ if(!confirm('Excluir o cartão '+x.n+'?'))return;S.cards=S.cards.filter(e=>e.id!=id);save();cardsSheet();render()}
 function catSheet(){sheet(`<h3>Categorias</h3><div class=lst>${S.cats.map(x=>`<div class=row onclick="catEdit(${x.id})"><i class=d style="background:${x.c}"></i><div class=t><div>${esc(x.n)}</div></div></div>`).join('')}</div><button class=pri onclick="catEdit()">+ Nova categoria</button>`)}
 function catEdit(id){const x=id?S.cats.find(e=>e.id==id):null;D.cc=x?x.c:PAL[0];sheet(`<h3>${x?'Editar':'Nova'} categoria</h3><input id=cn placeholder="Nome" value="${esc(x?x.n:'')}"><div class=sw8>${PAL.map(c=>`<button class="swc ${c==D.cc?'on':''}" data-c="${c}" style="background:${c}" onclick="D.cc='${c}';document.querySelectorAll('.swc').forEach(b=>b.classList.toggle('on',b.dataset.c==D.cc))"></button>`).join('')}</div><button class=pri onclick="catSave(${id||0})">Salvar</button>${x?`<button class=del onclick="catDel(${id})">Excluir</button>`:''}<button class=sec onclick="catSheet()">Voltar</button>`)}
 function catSave(id){const n=$('#cn').value.trim();if(!n)return;if(id){const x=S.cats.find(e=>e.id==id);x.n=n;x.c=D.cc}else S.cats.push({id:Date.now(),n,c:D.cc});save();catSheet();render()}
 function catDel(id){if(!confirm('Excluir esta categoria? Os lançamentos ficam sem categoria.'))return;S.cats=S.cats.filter(e=>e.id!=id);save();catSheet();render()}
 function setStart(){const n=$('#ini').value;if(!n)return;if(!confirm('Começar em '+lbl(n)+'? Meses anteriores saem do app e os gastos deles são apagados, menos as parcelas que continuam.'))return;
  S.start=n;S.invIni=num($('#ii').value);
- ['fechado','ganhos','inv'].forEach(o=>Object.keys(S[o]).forEach(k=>{if(k<n)delete S[o][k]}));
+ ['fechado','ganhos','inv','salOv','vrOv'].forEach(o=>Object.keys(S[o]||{}).forEach(k=>{if(k<n)delete S[o][k]}));
  S.gastos=S.gastos.filter(g=>add(g.ym,g.n-1)>=n);
  if(V<n)V=n;render();toast('O app agora começa em '+lbl(n))}
 function toast(t){const d=document.createElement('div');d.className='toast';d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),3000)}
 async function share(n,t,ty){const fl=new File([t],n,{type:ty});try{if(navigator.canShare&&navigator.canShare({files:[fl]})){await navigator.share({files:[fl]});return}}catch(e){if(e.name=='AbortError')return}const a=document.createElement('a');a.href=URL.createObjectURL(fl);a.download=n;a.click()}
-function mrows(y){const c=calc(y),m=lbl(y),cn=i=>i?catOf(i).n:'',R=[[m,'Entrada','Salário','','','','',ver(S.sal,y)]];
+function mrows(y){const c=calc(y),m=lbl(y),cn=i=>i?catOf(i).n:'',R=[[m,'Entrada','Salário','','','','',salV(y)]];
  c.extras.forEach(x=>R.push([m,'Entrada',x.t,'','','','',x.v]));c.fx.forEach(x=>R.push([m,'Fixo',x.t,M[x.m]?M[x.m].n:'','','',cn(x.c),-x.v]));
  c.gs.forEach(g=>R.push([m,'Gasto',g.t,M[g.m].n,String(g.day),g.p,cn(g.c),-g.v]));c.mv.forEach(x=>R.push([m,'Investimento',x.t,'','','','',x.v]));
  R.push([m,'Resumo','Sobra do dinheiro','','','','',c.sobra],[m,'Resumo','Sobra do VR','','','','',c.vrSobra],[m,'Resumo','Total investido','','','','',c.invEnd]);return R}
@@ -279,7 +298,7 @@ function sg(id,i){D[id]=i;document.querySelectorAll('#'+id+' button').forEach((b
 const catSel=v=>`<select id=ct><option value=0>Sem categoria</option>${S.cats.map(x=>`<option value=${x.id} ${x.id==v?'selected':''}>${esc(x.n)}</option>`).join('')}</select>`;
 function addG(id){
  const g=id?S.gastos.find(x=>x.id==id):null,ym=g?g.ym:V,[yy,mm]=ym.split('-'),ult=new Date(+yy,+mm,0).getDate(),dv=g?ym+'-'+pd2(g.day):(cur==ym?ym+'-'+pd2(new Date().getDate()):ym+'-01');
- D={m:g?g.m:(S.lastM||'nubank'),par:g&&g.n>1?1:0};
+ D={m:g?g.m:(M[S.lastM]?S.lastM:Object.keys(M)[0]),par:g&&g.n>1?1:0};
  sheet(`<h3>${g?'Editar gasto':'Novo gasto'}</h3><div class=chips>${Object.keys(M).map(k=>`<button class="chip ${D.m==k?'on':''}" data-k=${k} style="--c:${M[k].c}" onclick="D.m='${k}';document.querySelectorAll('.chip').forEach(b=>b.classList.toggle('on',b.dataset.k==D.m))">${M[k].n}</button>`).join('')}</div>${mon(g?g.v:0)}${seg('par','À vista','Parcelado',D.par)}<input id=n type=number inputmode=numeric min=2 max=48 placeholder="Quantas parcelas?" value="${g&&g.n>1?g.n:''}" style="display:${D.par?'block':'none'}"><input id=t placeholder="Título do gasto" value="${esc(g?g.t:'')}"><label class=lb>Data da compra</label><input id=dt type=date min="${ym}-01" max="${ym}-${pd2(ult)}" value="${dv}"><label class=lb>Categoria</label>${catSel(g?g.c:S.lastC)}<p class=hint>Parcelado: digite o valor de cada parcela, ele se repete todo mês.</p><button class=pri onclick="saveG(${id||0})">Salvar</button>${g?`<button class=del onclick="delG(${id})">Excluir gasto</button>`:''}`);
 }
 function saveG(id){
@@ -294,6 +313,20 @@ function extraSheet(id){
  const x=id?(S.ganhos[V]||[]).find(e=>e.id==id):null;
  sheet(`<h3>${x?'Editar entrada':'Entrada extra'}</h3>${mon(x?x.v:0)}<input id=t placeholder="De onde veio?" value="${esc(x?x.t:'')}"><button class=pri onclick="saveE(${id||0})">Salvar</button>${x?`<button class=del onclick="delE(${id})">Excluir</button>`:''}`);
 }
+function salSheet(){const ov=S.salOv&&S.salOv[V]!=null;
+ sheet(`<h3>Salário de ${lbl(V)}</h3>${mon(salV(V))}<label class=sw><span>Repetir nos próximos meses<br><small class=hint>Ligado: vale para ${lbl(V)} e os próximos.<br>Desligado: muda só ${lbl(V)}.</small></span><input type=checkbox id=rp></label><button class=pri onclick="saveSal()">Salvar</button>${ov?`<button class=del onclick="resetSal()">Voltar ao valor padrão do mês</button>`:''}`)}
+function saveSal(){const v=num($('#v').value);if(!v){toast('Digite o valor do salário.');return}S.salOv=S.salOv||{};
+ if($('#rp').checked){S.sal[V]=v;delete S.salOv[V];Object.keys(S.sal).forEach(k=>{if(k>V)delete S.sal[k]});Object.keys(S.salOv).forEach(k=>{if(k>V)delete S.salOv[k]})}else S.salOv[V]=v;
+ cl();render()}
+function vrSheet(){const ov=S.vrOv&&S.vrOv[V]!=null;
+ sheet(`<h3>Vale refeição de ${lbl(V)}</h3>${mon(vrV(V))}<label class=sw><span>Repetir nos próximos meses<br><small class=hint>Ligado: vale para ${lbl(V)} e os próximos.<br>Desligado: muda só ${lbl(V)}.</small></span><input type=checkbox id=rp></label><label class=lb>Dia em que o VR cai (opcional)</label><input id=vd type=number inputmode=numeric min=1 max=31 placeholder="Ainda não sei" value="${S.vrDia||''}"><p class=hint>O dia vale para todos os meses. Deixe vazio se ainda não souber.</p><button class=pri onclick="saveVr()">Salvar</button>${ov?`<button class=del onclick="resetVr()">Voltar ao valor padrão do mês</button>`:''}`)}
+function saveVr(){const v=num($('#v').value),d=parseInt($('#vd').value);
+ if($('#vd').value&&!(d>=1&&d<=31)){toast('O dia deve ser de 1 a 31.');return}
+ S.vrOv=S.vrOv||{};S.vrDia=d||0;
+ if($('#rp').checked){S.vr[V]=v;delete S.vrOv[V];Object.keys(S.vr).forEach(k=>{if(k>V)delete S.vr[k]});Object.keys(S.vrOv).forEach(k=>{if(k>V)delete S.vrOv[k]})}else S.vrOv[V]=v;
+ cl();render()}
+function resetVr(){if(S.vrOv)delete S.vrOv[V];cl();render()}
+function resetSal(){if(S.salOv)delete S.salOv[V];cl();render()}
 function saveE(id){const t=$('#t').value.trim()||'Extra',v=num($('#v').value);if(!v)return;const a=S.ganhos[V]=S.ganhos[V]||[];if(id)Object.assign(a.find(e=>e.id==id),{t,v});else a.push({id:Date.now(),t,v});cl();render()}
 function delE(id){S.ganhos[V]=S.ganhos[V].filter(e=>e.id!=id);cl();render()}
 
