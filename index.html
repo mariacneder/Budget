@@ -95,6 +95,16 @@ select{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--
 .chips .chip{font-size:13px;padding:10px 2px}
 .bar{height:6px;border-radius:3px;background:var(--line);margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;border-radius:3px}
 .sw8{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}.swc{width:38px;height:38px;border-radius:19px;border:3px solid transparent}.swc.on{border-color:var(--tx)}
+html,body{max-width:100%;overflow-x:hidden;overscroll-behavior-x:none}
+body{touch-action:pan-y}
+input,select,textarea{min-width:0;max-width:100%}
+input[type=date],input[type=month]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-height:50px;text-align:left}
+input[type=date]::-webkit-date-and-time-value,input[type=month]::-webkit-date-and-time-value{text-align:left;min-width:0}
+.pn{overflow-x:hidden;overscroll-behavior:contain}.pn>*{max-width:100%}
+.chips,.seg,.grid>*,.two>*,.tiles>*{min-width:0}
+.chip,.seg button{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sw span{min-width:0}
+.big,.kpi strong,.half strong{overflow-wrap:anywhere}
 </style></head><body>
 <header><button id="prev" onclick="nav(-1)">‹</button><div id="mt"></div><button id="next" onclick="nav(1)">›</button></header>
 <main id="main"></main>
@@ -118,10 +128,14 @@ const ver=(o,y)=>{const k=Object.keys(o).filter(x=>x<=y).sort().pop();return k?o
 const f=v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const mask=c=>{const s=String(c).padStart(3,'0');return s.slice(0,-2).replace(/\B(?=(\d{3})+(?!\d))/g,'.')+','+s.slice(-2)};
-const mk=e=>e.value=mask(parseInt(e.value.replace(/\D/g,'')||'0'));
+const mm=c=>c>0?mask(c):'';
+const fim=e=>{try{const n=e.value.length;e.setSelectionRange(n,n)}catch(_){}};
+const mk=e=>{const d=parseInt(e.value.replace(/\D/g,'')||'0');e.value=mm(d);fim(e)};
+['focusin','click','pointerup','touchend','select','keyup'].forEach(t=>document.addEventListener(t,ev=>{const e=ev.target;if(e&&e.classList&&e.classList.contains('money')){fim(e);setTimeout(()=>fim(e),0)}},true));
+document.addEventListener('keydown',ev=>{const e=ev.target;if(e&&e.classList&&e.classList.contains('money')&&['ArrowLeft','ArrowRight','Home','End'].includes(ev.key)){ev.preventDefault();fim(e)}},true);
 const num=s=>Number(s.replace(/\./g,'').replace(',','.'))||0;
 const sum=(a,fn)=>a.reduce((s,x)=>s+(fn?fn(x):x.v),0);
-const cur=ym0(new Date()),INI=cur<'2026-11'?'2026-11':cur;
+const cur=ym0(new Date()),INI=cur;
 const DUE={nubank:11,inter:7};
 function fat(k,y){let t=0;S.gastos.forEach(g=>{if(g.m!=k)return;for(let i=0;i<g.n;i++){const pm=add(g.ym,i),dm=k=='nubank'?(g.day<=4?pm:add(pm,1)):add(pm,1);if(dm==y)t+=g.v}});return t}
 let S=JSON.parse(localStorage.getItem(K)||'null');
@@ -165,7 +179,7 @@ function nav(n){const t=add(V,n);sheet(`<h3>Ir para ${lbl(t)}?</h3><p class=hint
 const go=t=>{S.tab=t;render();scrollTo(0,0);if(t=='cfg'&&S.url&&!S.email)info()};
 
 const mnm=y=>MN[+y.split('-')[1]-1];
-const lastM=()=>{let m=add(cur,1);S.gastos.forEach(g=>{const e=add(g.ym,g.n-1);if(e>m)m=e});return m};
+const lastM=()=>{let m=add(cur>S.start?cur:S.start,1);S.gastos.forEach(g=>{const e=add(g.ym,g.n-1);if(e>m)m=e});return m};
 const HDR=['Mês','Tipo','Título','Forma','Dia','Parcela','Categoria','Valor'];
 const pend=()=>V>add(cur,1)&&!S.fechado[add(V,-1)];
 const WD=['dom','seg','ter','qua','qui','sex','sáb'];
@@ -199,7 +213,7 @@ function inv(c){
  return h;
 }
 let editCon=false;
-const VER='1.6';
+const VER='1.7';
 const TI={auto:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>',light:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',dark:'<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>'};
 function cfg(){
  const t=localStorage.getItem('fin_sync'),hh=t?new Date(t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'';
@@ -210,9 +224,9 @@ function cfg(){
  if(S.url)h+=`<button class=btn onclick="sair()">Sair da conta</button><p class=hint style="text-align:center;margin-top:14px">Finanças · versão ${VER}</p><p class=hint style="text-align:center">${hh?'Enviado às '+hh:'Ainda não enviou'} · <button class=link onclick="sync(true);toast('Enviando…')">Enviar agora</button></p><p style="text-align:center"><button class=link onclick="nuvem()">Restaurar da nuvem</button> · <button class=link onclick="editCon=!editCon;render()">Editar conexão</button></p>`;
  else h+=`<p class=hint style="text-align:center;margin-top:12px">Finanças · versão ${VER}</p>`;
  if(!S.url||editCon)h+=`<div class=card><h4>Conectar à planilha</h4><p class=hint>Cole o link do Apps Script e a senha. Passo a passo no arquivo apps-script.gs.</p><input id=url placeholder="Link do Apps Script (termina em /exec)" value="${esc(S.url||'')}"><input id=sn placeholder="Senha (a mesma do script)" value="${esc(S.senha||'')}"><input id=pl placeholder="Link da planilha (opcional)" value="${esc(S.planilha||'')}"><button class=sec onclick="conectar()">Conectar</button></div>`;
- h+=`<div class=card><h4>Salário</h4><input class=money inputmode=numeric value="${mask(Math.round(ver(S.sal,V)*100))}" oninput="mk(this)" id=sal><p class=hint>Vale a partir de ${lbl(V)}. Meses anteriores não mudam.</p><button class=sec onclick="S.sal[V]=num($('#sal').value);render()">Salvar salário</button></div>
- <div class=card><h4>Vale refeição do mês</h4><input class=money inputmode=numeric value="${mask(Math.round(ver(S.vr,V)*100))}" oninput="mk(this)" id=vrb><p class=hint>A sobra do mês anterior é somada automaticamente.</p><button class=sec onclick="S.vr[V]=num($('#vrb').value);render()">Salvar VR</button></div>
- <div class=card><h4>Começar o app em</h4><input type=month id=ini value="${S.start}"><p class=hint>Valor que você já tem investido nesse mês de início:</p><input class=money inputmode=numeric id=ii value="${mask(Math.round((S.invIni||0)*100))}" oninput="mk(this)"><button class=sec onclick="setStart()">Aplicar</button></div>
+ h+=`<div class=card><h4>Salário</h4><input class=money inputmode=numeric placeholder="0,00" value="${mm(Math.round(ver(S.sal,V)*100))}" oninput="mk(this)" id=sal><p class=hint>Vale a partir de ${lbl(V)}. Meses anteriores não mudam.</p><button class=sec onclick="S.sal[V]=num($('#sal').value);render()">Salvar salário</button></div>
+ <div class=card><h4>Vale refeição do mês</h4><input class=money inputmode=numeric placeholder="0,00" value="${mm(Math.round(ver(S.vr,V)*100))}" oninput="mk(this)" id=vrb><p class=hint>A sobra do mês anterior é somada automaticamente.</p><button class=sec onclick="S.vr[V]=num($('#vrb').value);render()">Salvar VR</button></div>
+ <div class=card><h4>Começar o app em</h4><input type=month id=ini value="${S.start}"><p class=hint>Valor que você já tem investido nesse mês de início:</p><input class=money inputmode=numeric placeholder="0,00" id=ii value="${mm(Math.round((S.invIni||0)*100))}" oninput="mk(this)"><button class=sec onclick="setStart()">Aplicar</button></div>
  <div class=card><h4>Aniversários</h4><p class=hint>Aparecem só no mês do aniversário, na tela inicial e em um aviso ao abrir o app. Aqui você vê e edita todos.</p><button class=sec onclick="anivSheet()">Ver e editar</button></div>
  <div class=card><h4>Backup manual</h4><p class=hint>Escolha Drive ou Arquivos na tela que abrir.</p><button class=sec onclick="share('financas.csv',csv(),'text/csv')">Exportar todos os meses (planilha)</button><button class=sec onclick="share('backup-financas.json',JSON.stringify(S),'application/json')">Salvar backup em arquivo</button><button class=sec onclick="restore()">Restaurar backup</button></div>`;
  return h;
@@ -258,7 +272,7 @@ function restore(){const t=prompt('Cole aqui o backup:');if(!t)return;try{const 
 
 function sheet(h){$('#sh').innerHTML='<div class=bk onclick=cl()></div><div class=pn>'+h+'</div>';$('#sh').style.display='block'}
 const cl=()=>{$('#sh').style.display='none';$('#sh').innerHTML=''};
-const mon=v=>`<input id=v class=money inputmode=numeric value="${mask(Math.round(v*100))}" oninput="mk(this)">`;
+const mon=v=>`<input id=v class=money inputmode=numeric placeholder="0,00" value="${mm(Math.round(v*100))}" oninput="mk(this)">`;
 const seg=(id,a,b,on)=>`<div class=seg id=${id}><button class="${on?'':'on'}" onclick="sg('${id}',0)">${a}</button><button class="${on?'on':''}" onclick="sg('${id}',1)">${b}</button></div>`;
 function sg(id,i){D[id]=i;document.querySelectorAll('#'+id+' button').forEach((b,j)=>b.classList.toggle('on',j==i));if(id=='par')$('#n').style.display=i?'block':'none'}
 
